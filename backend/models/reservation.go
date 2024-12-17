@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -22,5 +23,12 @@ func (r Reservation) String() string {
 		r.Email,
 		r.FirstName,
 		r.LastName,
+	)
+}
+
+func (r Reservation) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("email", r.Email),
+		slog.String("first_name", r.FirstName + " " + r.LastName),
 	)
 }
