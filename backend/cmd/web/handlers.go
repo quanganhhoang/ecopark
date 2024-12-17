@@ -4,6 +4,7 @@ import (
 	"backend/models"
 	"context"
 	"database/sql"
+	"github.com/pkg/errors"
 	"log/slog"
 	"net/http"
 
@@ -58,7 +59,7 @@ func (app *App) HandleGetReservationByID(c *gin.Context) {
 	reservation, err := app.Service.Reservation.Repository.FindById(id)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Reservation not found"})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})

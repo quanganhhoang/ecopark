@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"log/slog"
 	"time"
 )
@@ -20,7 +21,7 @@ type ReservationRepositoryImpl struct {
 
 func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation models.Reservation) error {
 	query := `
-		INSERT INTO reservations (
+		INSERT INTO reservations.reservations (
 			email,
 			first_name,
 			last_name,
@@ -52,7 +53,7 @@ func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation mode
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to execute query: %v", err)
+		return errors.Wrap(err, fmt.Sprintf("failed to execute query: %s", query))
 	}
 
 	return nil
@@ -69,15 +70,15 @@ func (reservationRepo ReservationRepositoryImpl) FindAll() ([]models.Reservation
 		var startDateBytes []byte
 		var endDateBytes []byte
 		if err := rows.Scan(
-				&reservation.ID,
-				&reservation.Email,
-				&reservation.FirstName,
-				&reservation.LastName,
-				&reservation.NationalId,
-				&startDateBytes,
-				&endDateBytes,
-				&reservation.NumGuests,
-			); err != nil {
+			&reservation.ID,
+			&reservation.Email,
+			&reservation.FirstName,
+			&reservation.LastName,
+			&reservation.NationalId,
+			&startDateBytes,
+			&endDateBytes,
+			&reservation.NumGuests,
+		); err != nil {
 			slog.Info("findAll", "error", err)
 		}
 		reservation.StartDate, _ = time.Parse("YYYY-MM-dd", string(startDateBytes))
@@ -93,7 +94,7 @@ func (reservationRepo ReservationRepositoryImpl) FindAll() ([]models.Reservation
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute query: %v", err)
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to execute query: %s", query))
 	}
 	defer rows.Close()
 

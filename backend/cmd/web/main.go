@@ -4,12 +4,13 @@ import (
 	"backend/repository"
 	"backend/service"
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 
@@ -41,10 +42,10 @@ func init() {
 		}
 		dbConn, err = initDbConnection(databaseURL, 3, time.Second*1)
 		if err != nil {
-			errChan <- fmt.Errorf("MySQL connection error: %v", err)
+			errChan <- errors.Wrap(err, "MySQL connection error")
 			return
 		}
-		fmt.Println("MySQL connected successfully")
+		slog.Info("MySQL connected successfully")
 	}()
 
 	go func() {
@@ -53,10 +54,10 @@ func init() {
 		addr := os.Getenv("REDIS_URL")
 		redisClient, err = initRedisConnection(addr)
 		if err != nil {
-			errChan <- fmt.Errorf("redis connection error: %v", err)
+			errChan <- errors.Wrap(err, "Redis connection error")
 			return
 		}
-		fmt.Println("Redis connected successfully")
+		slog.Info("Redis connected successfully")
 	}()
 
 	wg.Wait()
@@ -68,10 +69,10 @@ func init() {
 	}
 
 	if dbConn == nil {
-		log.Fatal("MySQL connection is not initialized")
+		slog.Error("MySQL connection is not initialized")
 	}
 	if redisClient == nil {
-		log.Fatal("Redis client is not initialized")
+		slog.Error("Redis client is not initialized")
 	}
 }
 
@@ -123,7 +124,7 @@ func initRedisConnection(addr string) (*redis.Client, error) {
 
 	_, err := redisClient.Ping(ctx).Result()
 	if err != nil {
-		return nil, fmt.Errorf("failed to ping Redis: %w", err)
+		return nil, errors.Wrap(err, "failed to ping Redis")
 	}
 	slog.Info("Connected to Redis")
 
@@ -134,16 +135,16 @@ func main() {
 	defer cleanup()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-  slog.SetDefault(logger)
+	slog.SetDefault(logger)
 
-  app := &App {
-    Database: dbConn,
-		Service: service.New(repository.New(dbConn)),
-		Router: gin.Default(),
-    Redis: redisClient,
-    Port: 8080,
-		Logger: logger,
-  }
+	app := &App{
+		Database: dbConn,
+		Service:  service.New(repository.New(dbConn)),
+		Router:   gin.Default(),
+		Redis:    redisClient,
+		Port:     8080,
+		Logger:   logger,
+	}
 
 	app.Router.GET("/api/reservations", app.HandleGetReservations)
 	app.Router.POST("/api/reservations", app.HandlePostReservation)
@@ -151,7 +152,7 @@ func main() {
 	// http.HandleFunc("/api/reservations", app.HandleGetReservations)
 	// http.HandleFunc("/api/reservations", app.HandlePostReservation)
 
-  app.RunServer()
+	app.RunServer()
 }
 
 func cleanup() {
