@@ -5,10 +5,10 @@ import (
 )
 
 type ReservationService struct {
-	Repository repository.ReservationRepositoryImpl
+	Repository repository.ReservationRepository
 }
 
-func NewReservationService(repository repository.ReservationRepositoryImpl) *ReservationService {
+func NewReservationService(repository repository.ReservationRepository) *ReservationService {
 	return &ReservationService{
 		repository,
 	}

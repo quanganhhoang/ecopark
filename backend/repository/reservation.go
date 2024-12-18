@@ -5,14 +5,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pkg/errors"
 	"log/slog"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type ReservationRepository interface {
 	AddReservation(reservation models.Reservation) error
-	FindAll() error
+	FindAll() ([]models.Reservation, error)
+	FindById(id string) (models.Reservation, error)
 }
 
 type ReservationRepositoryImpl struct {
