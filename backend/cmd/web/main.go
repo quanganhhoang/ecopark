@@ -24,8 +24,8 @@ import (
 var dbConn *sql.DB
 var redisClient *redis.Client
 
-// automatically called before main()
-func init() {
+// automatically called before any method in the main package
+func setup() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -92,21 +92,6 @@ func initDbConnection(dsn string, retries int, delay time.Duration) (*sql.DB, er
 
 	slog.Info("Connected to MySQL database\n", "addr", dsn)
 
-	// var rows *sql.Rows
-	// rows, err = conn.Query("show databases;")
-
-	// if err != nil {
-	// 	log.Fatalf("Failed to execute query: %v", err)
-	// }
-	// defer rows.Close()
-
-	// var databaseName string
-	// fmt.Println("Databases:")
-	// for rows.Next() {
-	// 	rows.Scan(&databaseName)
-	// 	fmt.Println(databaseName)
-	// }
-
 	return conn, nil
 }
 
@@ -132,10 +117,11 @@ func initRedisConnection(addr string) (*redis.Client, error) {
 }
 
 func main() {
-	defer cleanup()
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	setup()
+	defer cleanup()
 
 	app := &App{
 		Database: dbConn,
