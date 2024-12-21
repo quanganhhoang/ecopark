@@ -4,6 +4,7 @@ import (
 	"backend/models"
 	"backend/service"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,9 +37,7 @@ func (m *MockRepository) AddReservation(r models.Reservation) error {
 	return args.Error(1)
 }
 
-// TestHandleGetReservationByID tests the handler for different scenarios
-func TestHandleGetReservationByID(t *testing.T) {
-	// Mock data
+func generateMockData() []models.Reservation {
 	mockID := "123"
 	mockFirstName := "John"
 	mockLastName := "Doe"
@@ -58,13 +57,21 @@ func TestHandleGetReservationByID(t *testing.T) {
 		NationalId: mockNationalId,
 	}
 
+	return []models.Reservation{mockReservation}
+}
+
+// TestHandleGetReservationByID tests the handler for different scenarios
+func TestHandleGetReservationByID(t *testing.T) {
+	mockReservation := generateMockData()[0]
+	mockID := mockReservation.ID
+
 	// Setup Gin
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Reservation Found", func(t *testing.T) {
 		// Initialize mocks
 		mockRepo := new(MockRepository)
-		mockRepo.On("FindById", mockID).Return(mockReservation, nil)
+		mockRepo.On("FindById", mockReservation).Return(mockReservation, nil)
 
 		app := &App{
 			Service: service.Service{
@@ -76,18 +83,18 @@ func TestHandleGetReservationByID(t *testing.T) {
 
 		// Create a test context
 		router := gin.Default()
-		router.GET("/reservations/:id", app.HandleGetReservationByID)
+		router.GET("/api/reservations/:id", app.HandleGetReservationByID)
 
 		// Simulate request
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/reservations/%s", mockID), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/reservations/%s", mockID), nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
 		// Assertions
 		assert.Equal(t, http.StatusOK, w.Code)
 		mockRepo.AssertCalled(t, "FindById", mockID)
-		assert.Contains(t, w.Body.String(), mockFirstName)
-		assert.Contains(t, w.Body.String(), mockLastName)
+		assert.Contains(t, w.Body.String(), mockReservation.FirstName)
+		assert.Contains(t, w.Body.String(), mockReservation.LastName)
 	})
 
 	t.Run("Reservation Not Found", func(t *testing.T) {
@@ -103,9 +110,9 @@ func TestHandleGetReservationByID(t *testing.T) {
 		}
 
 		router := gin.Default()
-		router.GET("/reservations/:id", app.HandleGetReservationByID)
+		router.GET("/api/reservations/:id", app.HandleGetReservationByID)
 
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/reservations/%s", mockID), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/reservations/%s", mockID), nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -127,14 +134,88 @@ func TestHandleGetReservationByID(t *testing.T) {
 		}
 
 		router := gin.Default()
-		router.GET("/reservations/:id", app.HandleGetReservationByID)
+		router.GET("/api/reservations/:id", app.HandleGetReservationByID)
 
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/reservations/%s", mockID), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/reservations/%s", mockID), nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		mockRepo.AssertCalled(t, "FindById", mockID)
 		assert.Contains(t, w.Body.String(), "Server error")
+	})
+}
+
+func TestHandleGetReservations(t *testing.T) {
+	mockReservations := generateMockData()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Fetch all reservations", func(t *testing.T) {
+		mockRepo := new(MockRepository)
+		mockRepo.On("FindAll").Return(mockReservations, nil)
+
+		app := &App{
+			Service: service.Service{
+				Reservation: service.ReservationService{
+					Repository: mockRepo,
+				},
+			},
+		}
+
+		// Create a test context
+		router := gin.Default()
+		router.GET("/api/reservations", app.HandleGetReservations)
+
+		// Simulate request
+		req, _ := http.NewRequest(http.MethodGet, "/api/reservations", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		// Assertions
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockRepo.AssertCalled(t, "FindAll")
+
+		var reservations []models.Reservation
+
+		var rawMap map[string]json.RawMessage
+		err := json.Unmarshal(w.Body.Bytes(), &rawMap)
+		if err != nil {
+			fmt.Printf("Failed to unmarshal into map: %v\n", err)
+			return
+		}
+		err = json.Unmarshal(rawMap["reservations"], &reservations)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response: %v. Response: %s", err, rawMap["reservations"])
+		}
+
+		// Assert that there is exactly one reservation
+		if len(reservations) != 1 {
+			t.Fatalf("Expected 1 reservation, got %d", len(reservations))
+		}
+
+	})
+
+	t.Run("Server Error", func(t *testing.T) {
+		mockRepo := new(MockRepository)
+		mockRepo.On("FindAll").Return([]models.Reservation{}, errors.New("database error"))
+
+		app := &App{
+			Service: service.Service{
+				Reservation: service.ReservationService{
+					Repository: mockRepo,
+				},
+			},
+		}
+
+		router := gin.Default()
+		router.GET("/api/reservations", app.HandleGetReservations)
+
+		req, _ := http.NewRequest(http.MethodGet, "/api/reservations", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		mockRepo.AssertCalled(t, "FindAll")
 	})
 }

@@ -4,9 +4,10 @@ import (
 	"backend/models"
 	"context"
 	"database/sql"
-	"github.com/pkg/errors"
 	"log/slog"
 	"net/http"
+
+	"github.com/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,9 @@ func (app *App) HandleGetReservations(c *gin.Context) {
 	reservations, err := app.Service.Reservation.Repository.FindAll()
 	if err != nil {
 		slog.Error("Query failed")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"reservations": reservations,
