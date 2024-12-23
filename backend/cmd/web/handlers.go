@@ -2,7 +2,6 @@ package main
 
 import (
 	"backend/models"
-	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -21,7 +20,7 @@ func (app *App) HandleGetReservations(c *gin.Context) {
 		return
 	}
 
-	reservations, err := app.Service.Reservation.Repository.FindAll()
+	reservations, err := app.Service.Reservation.Repository.FindAll(c)
 	if err != nil {
 		slog.Error("Query failed")
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -60,7 +59,7 @@ func (app *App) HandleGetReservations(c *gin.Context) {
 func (app *App) HandleGetReservationByID(c *gin.Context) {
 	id := c.Param("id")
 
-	reservation, err := app.Service.Reservation.Repository.FindById(id)
+	reservation, err := app.Service.Reservation.Repository.FindById(c, id)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -93,7 +92,7 @@ func (app *App) HandlePostReservation(c *gin.Context) {
 	}
 
 	slog.LogAttrs(
-		context.Background(),
+		c,
 		slog.LevelInfo,
 		"incoming request",
 		slog.String("method", http.MethodPost),
@@ -101,7 +100,7 @@ func (app *App) HandlePostReservation(c *gin.Context) {
 		slog.String("reservation", reservation.String()),
 	)
 
-	err := app.Service.Reservation.Repository.AddReservation(reservation)
+	err := app.Service.Reservation.Repository.AddReservation(c, reservation)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

@@ -12,16 +12,19 @@ import (
 )
 
 type ReservationRepository interface {
-	AddReservation(reservation models.Reservation) error
-	FindAll() ([]models.Reservation, error)
-	FindById(id string) (models.Reservation, error)
+	AddReservation(ctx context.Context, reservation models.Reservation) error
+	FindAll(ctx context.Context) ([]models.Reservation, error)
+	FindById(ctx context.Context, id string) (models.Reservation, error)
 }
 
 type ReservationRepositoryImpl struct {
 	DB *sql.DB
 }
 
-func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation models.Reservation) error {
+func (reservationRepo ReservationRepositoryImpl) AddReservation(
+		ctx context.Context,
+		reservation models.Reservation,
+) error {
 	query := `
 		INSERT INTO reservations.reservations (
 			email,
@@ -35,7 +38,8 @@ func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation mode
 		VALUES (?, ?, ?, ?, ?, ?, ?);
 	`
 
-	_, err := reservationRepo.DB.Exec(
+	_, err := reservationRepo.DB.QueryContext(
+		ctx,
 		query,
 		reservation.Email,
 		reservation.FirstName,
@@ -47,7 +51,7 @@ func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation mode
 	)
 
 	slog.LogAttrs(
-		context.Background(),
+		ctx,
 		slog.LevelInfo,
 		"adding reservation",
 		slog.String("query", query),
@@ -61,11 +65,11 @@ func (reservationRepo ReservationRepositoryImpl) AddReservation(reservation mode
 	return nil
 }
 
-func (reservationRepo ReservationRepositoryImpl) FindAll() ([]models.Reservation, error) {
+func (reservationRepo ReservationRepositoryImpl) FindAll(ctx context.Context) ([]models.Reservation, error) {
 	query := "select * from reservations.reservations;"
 
 	var reservations []models.Reservation
-	rows, err := reservationRepo.DB.Query(query)
+	rows, err := reservationRepo.DB.QueryContext(ctx, query)
 
 	for rows.Next() {
 		var reservation models.Reservation
@@ -89,7 +93,7 @@ func (reservationRepo ReservationRepositoryImpl) FindAll() ([]models.Reservation
 	}
 
 	slog.LogAttrs(
-		context.Background(),
+		ctx,
 		slog.LevelInfo,
 		"fetching all reservations",
 		slog.String("query", query),
@@ -103,12 +107,15 @@ func (reservationRepo ReservationRepositoryImpl) FindAll() ([]models.Reservation
 	return reservations, nil
 }
 
-func (reservationRepo ReservationRepositoryImpl) FindById(id string) (models.Reservation, error) {
+func (reservationRepo ReservationRepositoryImpl) FindById(
+	ctx context.Context,
+		id string,
+) (models.Reservation, error) {
 	query := "SELECT * FROM reservations WHERE id = ?"
 	var reservation models.Reservation
 	var startDateBytes []byte
 	var endDateBytes []byte
-	err := reservationRepo.DB.QueryRow(query, id).Scan(
+	err := reservationRepo.DB.QueryRowContext(ctx, query, id).Scan(
 		&reservation.ID,
 		&reservation.Email,
 		&reservation.FirstName,
